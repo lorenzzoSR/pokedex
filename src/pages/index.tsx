@@ -1,115 +1,160 @@
-import Image from "next/image";
-import localFont from "next/font/local";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { FiMenu, FiChevronLeft } from "react-icons/fi";
+import {
+  MainContainer,
+  Sidebar,
+  Logo,
+  Content,
+  GenerationButton,
+  PokemonGrid,
+  HeaderContainer,
+  PokedexLogo,
+  HeaderTitle,
+  ToggleButton,
+} from "../styles/HomePage.styles";
+import PokemonCard from "../components/PokemonCard/PokemonCard";
+import PokedexModal from "../components/PokedexModal/PokedexModal"; // Importar o modal
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
-
-export default function Home() {
-  return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]`}
-    >
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/pages/index.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+interface Pokemon {
+  name: string;
+  url: string;
 }
+
+interface PokemonDetails {
+  id: number;
+  name: string;
+  types: { type: { name: string } }[];
+}
+
+const HomePage = () => {
+  const [pokemonList, setPokemonList] = useState<PokemonDetails[]>([]);
+  const [generation, setGeneration] = useState<number>(1);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [selectedPokemon, setSelectedPokemon] = useState<PokemonDetails | null>(
+    null
+  );
+  const [offset, setOffset] = useState<number>(0);
+  const limit = 30;
+
+  useEffect(() => {
+    console.log("useEffect executado", { generation, offset });
+
+    if (pokemonList.length > 0 && offset === 0) return;
+    const fetchPokemonByGeneration = async () => {
+      try {
+        let baseUrl = "";
+
+        if (generation === 1) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${offset}&limit=${limit}`;
+        } else if (generation === 2) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            151 + offset
+          }&limit=${limit}`;
+        } else if (generation === 3) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            251 + offset
+          }&limit=${limit}`;
+        } else if (generation === 4) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            386 + offset
+          }&limit=${limit}`;
+        } else if (generation === 5) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            493 + offset
+          }&limit=${limit}`;
+        } else if (generation === 6) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            649 + offset
+          }&limit=${limit}`;
+        } else if (generation === 7) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            721 + offset
+          }&limit=${limit}`;
+        } else if (generation === 8) {
+          baseUrl = `https://pokeapi.co/api/v2/pokemon?offset=${
+            809 + offset
+          }&limit=${limit}`;
+        }
+
+        const response = await axios.get(baseUrl);
+        const results = await Promise.all(
+          response.data.results.map(async (pokemon: Pokemon) => {
+            const res = await axios.get(pokemon.url);
+            return res.data;
+          })
+        );
+
+        setPokemonList((prevList) => {
+          const newList = [...prevList, ...results];
+          const uniqueList = newList.filter(
+            (pokemon, index, self) =>
+              index === self.findIndex((p) => p.id === pokemon.id)
+          );
+          return uniqueList;
+        });
+      } catch (error) {
+        console.error("Erro ao buscar dados da PokeAPI", error);
+      }
+    };
+
+    fetchPokemonByGeneration();
+  }, [generation, offset]);
+
+  const loadMorePokemon = () => {
+    setOffset((prevOffset) => prevOffset + limit);
+  };
+
+  const changeGeneration = (gen: number) => {
+    setGeneration(gen);
+    setOffset(0);
+    setPokemonList([]);
+  };
+
+  return (
+    <MainContainer>
+      <ToggleButton onClick={() => setSidebarVisible(!sidebarVisible)}>
+        {sidebarVisible ? <FiChevronLeft /> : <FiMenu />} {/* Ícones */}
+      </ToggleButton>
+      {sidebarVisible && (
+        <Sidebar>
+          <Logo src="/pokemon-logo.png" alt="Logo Pokémon" />
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((gen) => (
+            <GenerationButton key={gen} onClick={() => changeGeneration(gen)}>
+              Geração {gen}
+            </GenerationButton>
+          ))}
+        </Sidebar>
+      )}
+      <Content $sidebarVisible={sidebarVisible}>
+        <HeaderContainer>
+          <PokedexLogo src="/pokedex.png" alt="Logo da Pokédex" />
+          <HeaderTitle>Pokédex Interativa</HeaderTitle>
+        </HeaderContainer>
+        <PokemonGrid>
+          {pokemonList.map((pokemon) => (
+            <PokemonCard
+              key={pokemon.id}
+              name={pokemon.name}
+              id={pokemon.id}
+              types={pokemon.types.map((type) => type.type.name)}
+              onClick={() => setSelectedPokemon(pokemon)}
+            />
+          ))}
+        </PokemonGrid>
+
+        {/* Botão para carregar mais Pokémon */}
+        <button onClick={loadMorePokemon}>Carregar mais</button>
+
+        {selectedPokemon && (
+          <PokedexModal
+            pokemon={selectedPokemon}
+            onClose={() => setSelectedPokemon(null)}
+          />
+        )}
+      </Content>
+    </MainContainer>
+  );
+};
+
+export default HomePage;
